@@ -1,4 +1,4 @@
-package utils
+package errors
 
 type APIError struct {
 	Code    int    `json:"code"`

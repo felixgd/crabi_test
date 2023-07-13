@@ -12,3 +12,13 @@ services:
     image: vligascrabi/crabi-pld-test:v1
     ports:
       - "3000:3000"
+    
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+volumes:
+  mongodb-data:
