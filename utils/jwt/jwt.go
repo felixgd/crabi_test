@@ -8,16 +8,16 @@ import (
 )
 
 type Claims struct {
-	UserID string `json:"userId"`
+	UserEmail string `json:"userId"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID string, secretKey []byte) (string, error) {
+func GenerateToken(userEmail string, secretKey []byte) (string, error) {
 	// Create a new JWT claims object
 	expirationTime := time.Now().Add(5 * time.Minute)
 
 	claims := &Claims{
-		UserID: userID,
+		UserEmail: userEmail,
 		RegisteredClaims: jwt.RegisteredClaims{
 			// In JWT, the expiry time is expressed as unix milliseconds
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -49,5 +49,5 @@ func VerifyToken(tokenString string, secretKey []byte) (string, error) {
 		return "", errors.New("invalid token")
 	}
 
-	return claims.UserID, nil
+	return claims.UserEmail, nil
 }

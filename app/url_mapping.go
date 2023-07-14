@@ -22,7 +22,7 @@ func NewRouter(e *gin.Engine, h *handlers.Handler) *Router {
 
 // RegisterRoutes registers the API routes.
 func (r *Router) RegisterRoutes() {
-	r.engine.GET("/user/:ID", r.handler.GetUser)
+	r.engine.GET("/user/:email", r.handler.GetUser)
 	r.engine.POST("/user", r.handler.CreateUser)
 	r.engine.POST("/auth", r.handler.AuthUser)
 }

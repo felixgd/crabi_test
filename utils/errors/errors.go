@@ -8,3 +8,7 @@ type APIError struct {
 func (e APIError) Error() string {
 	return e.Message
 }
+
+func (e APIError) ErrorCode() int {
+	return e.Code
+}

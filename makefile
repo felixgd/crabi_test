@@ -1,6 +1,6 @@
 # Build the Docker image
 build:
-	docker build -t crabi-test .
+	docker build --no-cache -t crabi-test .
 
 # Build the Docker image with debug enabled
 build-debug:
