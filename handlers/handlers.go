@@ -7,8 +7,10 @@ import (
 	"crabi_test/utils/jwt"
 	"log"
 	"net/http"
+	"net/mail"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // Handler represents the API handler that uses the Service dependency.
@@ -23,10 +25,19 @@ func NewHandler(s service.Service) *Handler {
 	}
 }
 
+// use a single instance of Validate, it caches struct info
+var validate *validator.Validate
+
 // GetUser is a handler function that retrieves data using the Service dependency.
 func (h *Handler) GetUser(ctx *gin.Context) {
 	email := ctx.Param("email")
 	token := ctx.GetHeader("auth")
+
+	_, err := mail.ParseAddress(email)
+	if err != nil {
+		ctx.JSON(400, "Invalid Data")
+		return
+	}
 
 	tokenEmail, err := jwt.VerifyToken(token, []byte(constants.SECRET_KEY))
 	if err != nil {
@@ -35,7 +46,7 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 	}
 
 	if tokenEmail != email {
-		ctx.JSON(http.StatusForbidden, err.Error())
+		ctx.JSON(http.StatusForbidden, "Not Authorized")
 		return
 	}
 
@@ -45,6 +56,8 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 		return
 	}
 
+	data.Password = ""
+
 	ctx.JSON(http.StatusOK, gin.H{"data": data})
 }
 
@@ -53,6 +66,12 @@ func (h *Handler) CreateUser(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&user); err != nil {
 		log.Print("error on bindJSON")
 		ctx.JSON(http.StatusForbidden, err.Error())
+		return
+	}
+
+	err := validate.Struct(user)
+	if err != nil {
+		ctx.JSON(400, "Invalid Data")
 		return
 	}
 
