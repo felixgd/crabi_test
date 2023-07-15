@@ -1,13 +1,13 @@
 version: "3"
 services:
-  # crabi-api:
-  #   build:
-  #     context: .
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     - pld-container
-  #     - mongodb
+  crabi-api:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - pld-container
+      - mongodb
 
   pld-container:
     image: vligascrabi/crabi-pld-test:v1

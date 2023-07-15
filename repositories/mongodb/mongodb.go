@@ -63,7 +63,7 @@ func (mc *MongoClient) Close() error {
 	return nil
 }
 
-func (c *MongoClient) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (c *MongoClient) GetByEmail(ctx context.Context, email string) (*domain.User, *errors.APIError) {
 	var user domain.User
 
 	collection := c.Client.Database(dbName).Collection(collectionName)
@@ -72,38 +72,50 @@ func (c *MongoClient) GetByEmail(ctx context.Context, email string) (*domain.Use
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	fmt.Println(err)
 	if err != nil {
-		return nil, errors.APIError{
-			Message: "Invalid credentials",
-			Code:    http.StatusBadRequest,
+		if err.Error() == "mongo: no documents in result" {
+			return nil, &errors.APIError{
+				Message: "Not found",
+				Code:    http.StatusNotFound,
+				Err:     fmt.Errorf("Not found"),
+			}
+		}
+		return nil, &errors.APIError{
+			Message: "Internal server error",
+			Code:    http.StatusInternalServerError,
+			Err:     fmt.Errorf("Internal server Error"),
 		}
 	}
 
 	return &user, nil
 }
 
-func (c *MongoClient) Create(ctx context.Context, user *domain.User) (*domain.User, error) {
+func (c *MongoClient) Create(ctx context.Context, user *domain.User) (*domain.User, *errors.APIError) {
 	collection := c.Client.Database(dbName).Collection(collectionName)
 	createdUser, err := c.GetByEmail(ctx, user.Email)
 	if err != nil {
-		return nil, errors.APIError{
-			Message: "Internal Server Error",
-			Code:    http.StatusInternalServerError,
+		if err.Code != http.StatusNotFound {
+			return nil, &errors.APIError{
+				Message: "Internal Server Error",
+				Code:    http.StatusInternalServerError,
+				Err:     fmt.Errorf("Internal server Error"),
+			}
 		}
 	}
 
 	if createdUser != nil {
-		return nil, errors.APIError{
+		return nil, &errors.APIError{
 			Message: "User already created",
 			Code:    http.StatusBadRequest,
+			Err:     fmt.Errorf("Bad Request"),
 		}
 	}
 
-	_, err = collection.InsertOne(ctx, user)
-	fmt.Println(err)
-	if err != nil {
-		return nil, errors.APIError{
+	_, colErr := collection.InsertOne(ctx, user)
+	if colErr != nil {
+		return nil, &errors.APIError{
 			Message: "Internal Server Error",
 			Code:    http.StatusInternalServerError,
+			Err:     fmt.Errorf("Internal server Error"),
 		}
 	}
 

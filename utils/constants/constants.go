@@ -2,15 +2,17 @@ package constants
 
 import (
 	"crypto/rand"
+	"log"
 )
 
 // Ideally the mongo URI, SECRET_KEY and AES_KEY would be in the secret manager in AWS or GCP
 const (
-	BASE_URL_PLD = "http://localhost:3000"
-	MONGODB_URI  = "mongodb://localhost:27017"
+	BASE_URL_PLD = "http://pld-container:3000"
+	MONGODB_URI  = "mongodb://mongodb:27017"
 	SECRET_KEY   = "test-crabi"
 )
 
+// This key should be static
 var (
 	AES_KEY = generateRandomAES256Key()
 )
@@ -21,5 +23,6 @@ func generateRandomAES256Key() []byte {
 	if err != nil {
 		panic(err)
 	}
+	log.Print(key)
 	return key
 }

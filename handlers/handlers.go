@@ -33,15 +33,15 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 	email := ctx.Param("email")
 	token := ctx.GetHeader("auth")
 
-	_, err := mail.ParseAddress(email)
-	if err != nil {
+	_, validateErr := mail.ParseAddress(email)
+	if validateErr != nil {
 		ctx.JSON(400, "Invalid Data")
 		return
 	}
 
-	tokenEmail, err := jwt.VerifyToken(token, []byte(constants.SECRET_KEY))
-	if err != nil {
-		ctx.JSON(400, err.Error())
+	tokenEmail, jwtErr := jwt.VerifyToken(token, []byte(constants.SECRET_KEY))
+	if jwtErr != nil {
+		ctx.JSON(400, jwtErr.Error())
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *Handler) GetUser(ctx *gin.Context) {
 
 	data, err := h.service.FetchUser(ctx, email)
 	if err != nil {
-		ctx.JSON(400, nil)
+		ctx.JSON(err.ErrorCode(), err.Message)
 		return
 	}
 
@@ -69,15 +69,15 @@ func (h *Handler) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	err := validate.Struct(user)
-	if err != nil {
-		ctx.JSON(400, "Invalid Data")
-		return
-	}
+	// err := validate.Struct(user)
+	// if err != nil {
+	// 	ctx.JSON(400, "Invalid Data")
+	// 	return
+	// }
 
 	data, err := h.service.CreateUser(ctx, &user)
 	if err != nil {
-		ctx.JSON(400, err.Error())
+		ctx.JSON(err.ErrorCode(), err.Message)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (h *Handler) AuthUser(ctx *gin.Context) {
 
 	data, err := h.service.AuthUser(ctx, &user)
 	if err != nil {
-		ctx.JSON(400, err.Error())
+		ctx.JSON(err.ErrorCode(), err.Message)
 		return
 	}
 

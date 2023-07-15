@@ -9,15 +9,17 @@ import (
 	"crabi_test/utils/cypher"
 	"crabi_test/utils/errors"
 	"crabi_test/utils/jwt"
-	"log"
+	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 // Service represents a service or dependency that the API depends on.
 type Service interface {
-	FetchUser(ctx context.Context, email string) (*domain.User, error)
-	CreateUser(ctx context.Context, user *domain.User) (*domain.User, error)
-	AuthUser(ctx context.Context, user *domain.User) (map[string]string, error)
+	FetchUser(ctx context.Context, email string) (*domain.User, *errors.APIError)
+	CreateUser(ctx context.Context, user *domain.User) (*domain.User, *errors.APIError)
+	AuthUser(ctx context.Context, user *domain.User) (map[string]string, *errors.APIError)
 }
 
 // UserService is an implementation of the Service interface.
@@ -35,7 +37,7 @@ func NewUserService(pldRepository pld.PLD, mongoClient *mongodb.MongoClient) *Us
 }
 
 // FetchData is a method of UserService that fetches some data.
-func (s *UserService) FetchUser(ctx context.Context, email string) (*domain.User, error) {
+func (s *UserService) FetchUser(ctx context.Context, email string) (*domain.User, *errors.APIError) {
 	user, err := s.mongoClient.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func (s *UserService) FetchUser(ctx context.Context, email string) (*domain.User
 	return user, nil
 }
 
-func (s *UserService) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
+func (s *UserService) CreateUser(ctx context.Context, user *domain.User) (*domain.User, *errors.APIError) {
 	pldPayload := domain.PLDPayload{
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
@@ -57,17 +59,28 @@ func (s *UserService) CreateUser(ctx context.Context, user *domain.User) (*domai
 	}
 
 	if pld.IsBlacklisted {
-		return nil, errors.APIError{
+		return nil, &errors.APIError{
 			Code:    http.StatusBadRequest,
-			Message: "Error while validating data",
+			Message: "Error while validating data.",
+			Err:     fmt.Errorf("Error while validating data."),
 		}
 	}
 
-	encryptedPassword, err := cypher.Encrypt(user.Password, constants.AES_KEY)
+	whitespace := regexp.MustCompile(`\s`).MatchString(user.Password)
+	if whitespace {
+		return nil, &errors.APIError{
+			Code:    http.StatusBadRequest,
+			Message: "Password should not have spaces",
+			Err:     fmt.Errorf("Password should not have spaces"),
+		}
+	}
+
+	encryptedPassword, cypherErr := cypher.Encrypt(user.Password, constants.AES_KEY)
 	if err != nil {
-		return nil, errors.APIError{
+		return nil, &errors.APIError{
 			Code:    http.StatusInternalServerError,
-			Message: "Internal Server Error",
+			Message: "Internal server error",
+			Err:     cypherErr,
 		}
 	}
 
@@ -75,7 +88,6 @@ func (s *UserService) CreateUser(ctx context.Context, user *domain.User) (*domai
 
 	user, err = s.mongoClient.Create(ctx, user)
 	if err != nil {
-		log.Println("here3")
 		return nil, err
 	}
 
@@ -84,22 +96,36 @@ func (s *UserService) CreateUser(ctx context.Context, user *domain.User) (*domai
 	return user, nil
 }
 
-func (s *UserService) AuthUser(ctx context.Context, user *domain.User) (map[string]string, error) {
+func (s *UserService) AuthUser(ctx context.Context, user *domain.User) (map[string]string, *errors.APIError) {
 	DBUser, err := s.mongoClient.GetByEmail(ctx, user.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	if user.Password != DBUser.Password {
-		return nil, errors.APIError{
-			Code:    http.StatusBadGateway,
-			Message: "Authentication failed",
+	decryptedPassword, cypherErr := cypher.Decrypt(DBUser.Password, constants.AES_KEY)
+	if err != nil {
+		return nil, &errors.APIError{
+			Code:    http.StatusInternalServerError,
+			Message: "Internal server error",
+			Err:     cypherErr,
 		}
 	}
 
-	token, err := jwt.GenerateToken(user.Email, []byte(constants.SECRET_KEY))
+	if user.Password != strings.Trim(decryptedPassword, "\t \f \v") {
+		return nil, &errors.APIError{
+			Code:    http.StatusBadRequest,
+			Message: "Error while validating data.",
+			Err:     fmt.Errorf("Error while validating data."),
+		}
+	}
+
+	token, jwtErr := jwt.GenerateToken(user.Email, []byte(constants.SECRET_KEY))
 	if err != nil {
-		return nil, err
+		return nil, &errors.APIError{
+			Code:    http.StatusInternalServerError,
+			Message: "Internal server error",
+			Err:     jwtErr,
+		}
 	}
 
 	response := make(map[string]string, 1)
